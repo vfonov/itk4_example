@@ -39,6 +39,8 @@
 #include <itkVectorResampleImageFilter.h>
 // #include "mincVectorBSplineInterpolate.h"
 #include <itkImageConstIterator.h>
+#include <itkMetaDataDictionary.h>
+#include <itkMetaDataObject.h>
 
 #include <unistd.h>
 #include <getopt.h>
