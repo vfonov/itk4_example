@@ -41,6 +41,11 @@
 #include <itkImageConstIterator.h>
 #include <itkMetaDataDictionary.h>
 #include <itkMetaDataObject.h>
+#include <itkTransformFileWriter.h>
+#include <itkTransformFileReader.h>
+#include <itkTransformBase.h>
+#include <itkTransformFactoryBase.h>
+#include <itkMultiTransform.h>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -72,9 +77,10 @@ typedef itk::ResampleImageFilter<Float3DImage, Float3DImage> FloatFilterType;
 typedef itk::ResampleImageFilter<Int3DImage  , Int3DImage>   IntFilterType;
 typedef itk::VectorResampleImageFilter<Vector3DImage , Vector3DImage>  VectorFilterType;
 
-typedef itk::IdentityTransform<double,3> IdentityTransformType;
-  
-typedef itk::CompositeTransform< double, 3 > TransformType;
+typedef itk::Transform<double,3>             TransformBaseType;
+typedef itk::MultiTransform<double,3>        MultiTransformType;
+typedef itk::IdentityTransform<double,3>     IdentityTransformType;
+typedef itk::CompositeTransform< double, 3 > CompositeTransformType;
 
 using namespace  std;
 
@@ -292,8 +298,8 @@ void resample_image(
   typedef typename itk::ResampleImageFilter<Image, ImageOut> ResampleFilterType;
   typedef typename itk::ImageFileReader<Image >   ImageReaderType;
   typedef typename itk::ImageFileWriter<ImageOut >   ImageWriterType;
-  
   typename ImageReaderType::Pointer reader = ImageReaderType::New();
+  TransformBaseType::Pointer transform;
   
   //initializing the reader
   reader->SetImageIO(base);
@@ -305,13 +311,35 @@ void resample_image(
   typename ResampleFilterType::Pointer filter  = ResampleFilterType::New();
   
   //creating coordinate transformation objects
-  TransformType::Pointer transform = TransformType::New();  
+  //TransformType::Pointer transform = TransformType::New();  
   IdentityTransformType::Pointer identity_transform = IdentityTransformType::New();
   
   if(!xfm_f.empty())
   {
-    //TODO: implement this
-    std::cerr<<"MINC XFM IO not implemented yet"<<std::endl;
+    itk::TransformFileReader::Pointer reader;
+    reader = itk::TransformFileReader::New();
+    reader->SetFileName( xfm_f.c_str() );
+    reader->Update();
+    
+    itk::TransformFileReader::TransformListType *list;
+    list = reader->GetTransformList();
+    if(list->size()>1)
+    {
+      itk::TransformFileReader::TransformListType::iterator lit = list->begin();
+      MultiTransformType::Pointer multi=MultiTransformType::New();
+      
+      while ( lit != list->end() )
+      {
+        multi->AddTransform(dynamic_cast<TransformBaseType*>(*lit));
+        lit++;
+      }
+      CompositeTransformType::Pointer composite=CompositeTransformType::New();
+      composite->AddTransform(multi);
+      transform=composite;
+    } else {
+      transform=*list->begin();
+    }
+    filter->SetTransform( transform );
   } else {
     filter->SetTransform( identity_transform );
   }
@@ -415,7 +443,7 @@ void resample_label_image (
   typename ThresholdFilterType::Pointer threshold_filter = ThresholdFilterType::New();
 
   //creating coordinate transformation objects
-  TransformType::Pointer transform = TransformType::New();
+  //TransformType::Pointer transform = TransformType::New();
   if(!xfm_f.empty())
   {
     //TODO: implement this
@@ -727,6 +755,7 @@ int main (int argc, char **argv)
   
 	try
   {
+    itk::TransformFactoryBase::RegisterDefaultTransforms();
     //try to figure out what we have got
     IOBasePointer io = itk::ImageIOFactory::CreateImageIO(input_f.c_str(), itk::ImageIOFactory::ReadMode );
     
