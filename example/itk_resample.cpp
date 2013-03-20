@@ -326,18 +326,18 @@ void resample_image(
     if(list->size()>1)
     {
       itk::TransformFileReader::TransformListType::iterator lit = list->begin();
-      MultiTransformType::Pointer multi=MultiTransformType::New();
+      //MultiTransformType::Pointer multi=MultiTransformType::New();
+      CompositeTransformType::Pointer composite=CompositeTransformType::New();
       
       while ( lit != list->end() )
       {
-        multi->AddTransform(dynamic_cast<TransformBaseType*>(*lit));
+        composite->AddTransform(dynamic_cast<TransformBaseType*>( (*lit).GetPointer()));
         lit++;
       }
-      CompositeTransformType::Pointer composite=CompositeTransformType::New();
-      composite->AddTransform(multi);
+      //composite->AddTransform(multi);
       transform=composite;
     } else {
-      transform=*list->begin();
+      transform=dynamic_cast<TransformBaseType*>((*list->begin()).GetPointer());
     }
     filter->SetTransform( transform );
   } else {
